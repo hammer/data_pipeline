@@ -35,18 +35,14 @@ def get_ontology_code_from_url(url):
     return base_code
 
 class EFO(JSONSerializable):
-    def __init__(self,
-                 code='',
-                 label='',
-                 synonyms=[],
-                 phenotypes=[],
-                 path=[],
-                 path_codes=[],
-                 path_labels=[],
-                 therapeutic_labels=[],
-                 therapeutic_codes=[],
-                 definition=""):
+    def __init__(self, code, shortcode,
+                 label, synonyms,
+                 phenotypes,
+                 path, path_codes, path_labels,
+                 therapeutic_labels, therapeutic_codes,
+                 definition):
         self.code = code
+        self.shortcode = shortcode
         self.label = label
         self.efo_synonyms = synonyms
         self.phenotypes = phenotypes
@@ -57,7 +53,12 @@ class EFO(JSONSerializable):
         self.therapeutic_codes = therapeutic_codes
         # self.id_org = id_org
         self.definition = definition
-        self.children=[]
+        self.children = []
+        #if the term is a therapeutic area, flag it
+        if shortcode in therapeutic_codes:
+            self.therapeutic_flag = True
+        else:
+            self.therapeutic_flag = False
 
     def get_id(self):
         return self.code
@@ -194,6 +195,7 @@ class EfoProcess():
 
 
             efo = EFO(code=uri,
+                      shortcode=id,
                       label=label,
                       synonyms=synonyms,
                       phenotypes=phenotypes,
