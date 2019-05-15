@@ -192,18 +192,32 @@ class EfoProcess():
             therapeutic_uris = self.disease_ontology.therapeutic_uris[uri]
             therapeutic_codes = [self.disease_ontology.classes_paths[ta_uri]['ids'][0][-1] for ta_uri in therapeutic_uris]
 
+            # duplicate paths so that every therapeutic area is a root
+            extra_paths = []
+            for path in classes_path['all']:
+                for i in range(1,len(path)):
+                    if path[i]["uri"] in therapeutic_uris:
+                        extra_paths.append(path[i:])
+
+            classes_path["all"].extend(extra_paths)
+            for path in extra_paths:
+                classes_path['ids'].append(
+                    [self.disease_ontology.classes_paths[node["uri"]]['ids'][0][-1] for node in path])
+                classes_path['labels'].append(
+                    [node["label"] for node in path])
+
 
             efo = EFO(code=uri,
-                      label=label,
-                      synonyms=synonyms,
-                      phenotypes=phenotypes,
-                      path=classes_path['all'],
-                      path_codes=classes_path['ids'],
-                      path_labels=classes_path['labels'],
-                      therapeutic_labels=therapeutic_labels,
-                      therapeutic_codes=therapeutic_codes,
-                      definition=definition
-                      )
+                    label=label,
+                    synonyms=synonyms,
+                    phenotypes=phenotypes,
+                    path=classes_path['all'],
+                    path_codes=classes_path['ids'],
+                    path_labels=classes_path['labels'],
+                    therapeutic_labels=therapeutic_labels,
+                    therapeutic_codes=therapeutic_codes,
+                    definition=definition
+                    )
 
             if uri in self.disease_ontology.children:
                 efo.children = self.disease_ontology.children[uri]
