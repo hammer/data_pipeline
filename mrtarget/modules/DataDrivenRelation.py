@@ -156,19 +156,26 @@ Uses elasticsearch.helpers.parallel_bulk with multiple threads for high
 performance loading
 """
 def store_in_elasticsearch(results, es, dry_run, workers_write, queue_write, index, doc):
-    thread_count = workers_write
-    queue_size = queue_write
     chunk_size = 1000 #TODO make configurable
     actions = elasticsearch_actions(results, dry_run, index, doc)
     failcount = 0
-    for result in elasticsearch.helpers.parallel_bulk(es, actions,
-            thread_count=thread_count, queue_size=queue_size, chunk_size=chunk_size):
-        success, details = result
-        if not success:
-            failcount += 1
 
-    if failcount:
-        raise RuntimeError("%s relations failed to index" % failcount)
+    if not dry_run:
+        results = None
+        if workers_write > 0:
+            results = elasticsearch.helpers.parallel_bulk(es, actions,
+                    thread_count=workers_write,
+                    queue_size=queue_write, 
+                    chunk_size=chunk_size)
+        else:
+            results = elasticsearch.helpers.streaming_bulk(es, actions,
+                    chunk_size=chunk_size)
+        for success, details in results:
+            if not success:
+                failcount += 1
+
+        if failcount:
+            raise RuntimeError("%s relations failed to index" % failcount)
 
 """
 Generates elasticsearch action objects from the results iterator
@@ -428,7 +435,9 @@ class DataDrivenRelationProcess(object):
             ddr_workers_write,
             ddr_queue_production_score,
             ddr_queue_score_result,
-            ddr_queue_write):
+            ddr_queue_write,
+            score_threshold,
+            evidence_count):
         self.es_hosts = es_hosts
         self.es_index = es_index
         self.es_doc = es_doc
@@ -443,14 +452,18 @@ class DataDrivenRelationProcess(object):
         self.ddr_queue_production_score = ddr_queue_production_score
         self.ddr_queue_score_result = ddr_queue_score_result
         self.ddr_queue_write = ddr_queue_write
+        self.score_threshold = score_threshold
+        self.evidence_count = evidence_count
 
         self.logger = logging.getLogger(__name__)
 
     def process_all(self, dry_run):
 
         es = new_es_client(self.es_hosts)
-
-        target_data, disease_data = get_disease_to_targets_vectors(0.1, 3, es, self.es_index_assoc)
+        threshold = 0.1
+        evidence_count = 3
+        target_data, disease_data = get_disease_to_targets_vectors(
+                self.score_threshold, self.evidence_count, es, self.es_index_assoc)
 
         if len(target_data) == 0 or len(disease_data) == 0:
             raise Exception('Could not find a set of targets AND diseases that had the sufficient number'
